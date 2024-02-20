@@ -374,7 +374,7 @@ namespace WindowsFormsApp1
 
         private void cleanToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            acrylicListView1.Items.Clear();
+            acrylicListView2.Items.Clear();
         }
 
         private void notifyIcon1_MouseDoubleClick(object sender, MouseEventArgs e)
@@ -472,17 +472,28 @@ namespace WindowsFormsApp1
         }
 
 
+        // 导入user32.dll中的FindWindow函数
+        [DllImport("user32.dll", SetLastError = true)]
+        static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 
         private void 添加ToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string title = ((acrylicComboBox1.SelectedIndex != 0) ? "当前为【黑名单机制】" : "当前为【白名单机制】");
-            string text = Interaction.InputBox("国家名称", title, "China");
-            lock (Settings.C) // 确保线程安全
+            string text = "";
+            Task.Run(() =>
             {
-                Settings.C.Add(text);
-            }
-            
-            Addmsg2(text);
+                InputBox inputBox = new InputBox(title, "国家名称", "China");
+                if (inputBox.ShowDialog() == DialogResult.OK)
+                {
+                    text = inputBox.UserInput;
+                    lock (Settings.C) // 确保线程安全
+                    {
+                        Settings.C.Add(text);
+                    }
+
+                    Addmsg2(text);
+                }
+            });
         }
 
         private void delToolStripMenuItem_Click(object sender, EventArgs e)
@@ -500,8 +511,6 @@ namespace WindowsFormsApp1
             {
                 Settings.C.Add(item.ToString());
             }
-
         }
-
     }
 }
