@@ -19,6 +19,8 @@ using Timer = System.Windows.Forms.Timer;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Drawing.Drawing2D;
+using Microsoft.VisualBasic;
+using System.Net.Http;
 
 namespace WindowsFormsApp1
 {
@@ -124,8 +126,26 @@ namespace WindowsFormsApp1
             StopBlinking();
             Addmsg("[ - ]监听服务已关闭", Color.Red);
         }
-
-        private void ListenForClients(CancellationToken token)
+        static readonly HttpClient client = new HttpClient();
+        public static async Task<bool> IsIPInChinaAsync(string IP)
+        {
+            string url = $"http://ip-api.com/json/{IP}";
+            Addmsg($"[ + ]请求{url}查询国家中");
+            HttpResponseMessage response = await client.GetAsync(url);
+            response.EnsureSuccessStatusCode();
+            string responseBody = await response.Content.ReadAsStringAsync();
+            //United States    China   Russia
+            // 检查响应字符串中是否包含 "country": "China"
+            foreach (string line in Settings.C)
+            {
+                if (responseBody.Contains(line))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        private async void ListenForClients(CancellationToken token)
         {
             listener = new TcpListener(IPAddress.Any, port);
             listener.Start();
@@ -138,7 +158,37 @@ namespace WindowsFormsApp1
                     if (listener.Pending())
                     {
                         TcpClient client = listener.AcceptTcpClient();
-                        Task.Run(() => HandleClient(client, token), token);
+                        IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
+                        if (remoteEndPoint != null)
+                        {
+                            string remoteAddress = remoteEndPoint.Address.ToString();
+                            Addmsg($"[ + ]客户端{remoteAddress} 已连接...");
+                            bool a = await IsIPInChinaAsync(remoteAddress);
+                            if (a)//是
+                            {
+                                if (Settings.B_or_W)//白名单
+                                {
+                                    _ = Task.Run(() => HandleClient(client, token), token);
+                                }
+                                else
+                                {
+                                    Addmsg($"[ + ]客户端{remoteAddress}所在地区不允许被连接",Color.Red);
+                                }
+                            }
+                            else
+                            {
+                                if (!Settings.B_or_W)//白名单
+                                {
+                                    _ = Task.Run(() => HandleClient(client, token), token);
+                                }
+                                else
+                                {
+                                    Addmsg($"[ + ]客户端{remoteAddress}所在地区不允许被连接", Color.Red);
+                                }
+                            }
+                         
+                        }
+                        
                     }
                     else
                     {
@@ -185,6 +235,33 @@ namespace WindowsFormsApp1
                 {
                     _ = Program.form1.Invoke((MethodInvoker)(() =>
                     {
+                        Program.form1.acrylicListView2.Items.Insert(0, lv);
+                    }));
+                }
+                else
+                {
+                    Program.form1.acrylicListView2.Items.Insert(0, lv);
+                }
+
+            }
+            catch { }
+        }
+
+        public static void Addmsg2(string Msg)
+        {
+            Color c = Color.FromArgb(255, 220, 220, 220);
+            Addmsg2(Msg, c);
+        }
+        public static void Addmsg2(string Msg, Color color)
+        {
+            var lv = new AcrylicListItem(Msg);
+            lv.TextColor = color;
+            try
+            {
+                if (Program.form1.InvokeRequired)
+                {
+                    _ = Program.form1.Invoke((MethodInvoker)(() =>
+                    {
                         Program.form1.acrylicListView1.Items.Insert(0, lv);
                     }));
                 }
@@ -204,14 +281,6 @@ namespace WindowsFormsApp1
             byte[] encryptedData = AesEncryption.Encrypt(fileData, key, iv);
 
             netStream.Write(encryptedData, 0, encryptedData.Length);
-            IPEndPoint remoteEndPoint = client.Client.RemoteEndPoint as IPEndPoint;
-            if (remoteEndPoint != null)
-            {
-                string remoteAddress = remoteEndPoint.Address.ToString();
-                Addmsg($"[ + ]客户端{remoteAddress} 已连接...");
-            }
-
-
         }
         public static class AesEncryption
         {
@@ -381,5 +450,58 @@ namespace WindowsFormsApp1
         {
 
         }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            acrylicComboBox1.Items.Add("【允许】指定国家===白名单机制");
+            acrylicComboBox1.Items.Add("【阻止】指定国家===黑名单机制");
+            acrylicComboBox1.SelectedIndex = 0;
+            Settings.B_or_W = true;
+        }
+
+        private void acrylicComboBox1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (acrylicComboBox1.SelectedIndex == 0)
+            {
+                Settings.B_or_W = true;
+            }
+            else
+            {
+                Settings.B_or_W = false;
+            }
+        }
+
+
+
+        private void 添加ToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            string title = ((acrylicComboBox1.SelectedIndex != 0) ? "当前为【黑名单机制】" : "当前为【白名单机制】");
+            string text = Interaction.InputBox("国家名称", title, "China");
+            lock (Settings.C) // 确保线程安全
+            {
+                Settings.C.Add(text);
+            }
+            
+            Addmsg2(text);
+        }
+
+        private void delToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (acrylicListView1.SelectedIndices.Count > 0) // 确保至少有一个选中的项
+            {
+                // 循环逆向删除选中项，以避免因删除操作导致的索引变化问题
+                for (int i = acrylicListView1.SelectedIndices.Count - 1; i >= 0; i--)
+                {
+                    acrylicListView1.Items.RemoveAt(acrylicListView1.SelectedIndices[i]);
+                }
+            }
+            Settings.C.Clear();
+            foreach (var item in acrylicListView1.Items)
+            {
+                Settings.C.Add(item.ToString());
+            }
+
+        }
+
     }
 }

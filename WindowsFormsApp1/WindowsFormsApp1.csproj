@@ -46,6 +46,7 @@
     <Reference Include="AcrylicUI">
       <HintPath>C:\Users\laster\Desktop\AcrylicUI-main\AcrylicUI-main\AcrylicUI\bin\Release\net48\AcrylicUI.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.VisualBasic" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -67,6 +68,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Settings.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
     </EmbeddedResource>
